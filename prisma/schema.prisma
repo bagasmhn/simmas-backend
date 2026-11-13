@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Guru {
+  id                 Int               @id @default(autoincrement())
+  namalengkap        String
+  email              String            @unique
+  nip                String            @unique
+  password           String
+  jurusan            Jurusan
+  role               Role              @default(GURU)
+  status             Status            @default(NONAKTIF)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  pengajuanDibimbing PengajuanMagang[]
+  jurnalDibimbing    JurnalSiswa[]
+  kunjungan          KunjunganGuru[]
+  penilaianPkl       PenilaianPkl[]
+
+  @@map("guru")
+}
+
+model Siswa {
+  id        Int               @id @default(autoincrement())
+  nama      String
+  email     String            @unique
+  nis       String            @unique
+  password  String
+  kelas     String
+  role      Role              @default(SISWA)
+  status    Status            @default(BELUM_MAGANG)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  pengajuan PengajuanMagang[]
+  jurnal    JurnalSiswa[]
+  absen     AbsenSiswa[]
+  penilaian PenilaianPkl?
+
+  @@map("siswa")
+}
+
+model AbsenSiswa {
+  id              Int         @id @default(autoincrement())
+  siswaId         Int
+  siswa           Siswa       @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  tanggal         DateTime    @default(now()) @db.Date
+  statusAbsen     StatusAbsen
+  fotoMasukUrl    String?
+  fotoKeluarUrl   String?
+  keterangan      String?
+  jamMasuk        DateTime?   @default(now())
+  jamKeluar       DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([siswaId, tanggal])
+  @@index([siswaId])
+  @@map("absen_siswa")
+}
+
+model mitra {
+  id               Int               @id @default(autoincrement())
+  nama_perusahaan  String
+  alamat           String
+  bidang_usaha     String
+  kuota_peserta    Boolean
+  penanggung_jawab String
+  kontak           String
+  status           Status            @default(MENUNGGU_VALIDASI)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  pengajuan        PengajuanMagang[]
+  kunjungan        KunjunganGuru[]
+
+  @@map("dudi")
+}
+
+model KunjunganGuru {
+  id               Int      @id @default(autoincrement())
+  guruId           Int
+  guru             Guru     @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  dudiId           Int
+  dudi             mitra    @relation(fields: [dudiId], references: [id], onDelete: Cascade)
+  tanggalKunjungan DateTime
+  catatanEvaluasi  String
+  fotoUrl          String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([guruId])
+  @@index([dudiId])
+  @@map("kunjungan_guru")
+}
+
+model PengajuanMagang {
+  id               Int      @id @default(autoincrement())
+  siswaId          Int
+  siswa            Siswa    @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  dudiId           Int
+  dudi             mitra    @relation(fields: [dudiId], references: [id], onDelete: Cascade)
+  guruPembimbingId Int?
+  guruPembimbing   Guru?    @relation(fields: [guruPembimbingId], references: [id], onDelete: SetNull)
+  posisi           String
+  status           Status   @default(AJUKAN)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([guruPembimbingId])
+  @@map("pengajuan_magang")
+}
+
+model JurnalSiswa {
+  id               Int      @id @default(autoincrement())
+  siswaId          Int
+  siswa            Siswa    @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  guruPembimbingId Int?
+  guruPembimbing   Guru?    @relation(fields: [guruPembimbingId], references: [id], onDelete: SetNull)
+  tanggalPelaksana DateTime
+  rincianKegiatan  String
+  kendalaMasalah   String?
+  tindakLanjut     String?
+  fotoUrl          String?
+  status           Status   @default(MENUNGGU)
+  catatanGuru      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([siswaId])
+  @@index([guruPembimbingId])
+  @@map("jurnal_siswa")
+}
+
+model PenilaianPkl {
+  id               Int      @id @default(autoincrement())
+  siswaId          Int      @unique
+  siswa            Siswa    @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  guruId           Int
+  guru             Guru     @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  nilai            Float
+  catatan          String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([siswaId])
+  @@index([guruId])
+  @@map("penilaian_pkl")
+}
+
+enum StatusAbsen {
+  HADIR
+  IZIN
+  SAKIT
+  ALPHA
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  GURU
+  SISWA
+}
+
+enum Status {
+  BELUM_MAGANG
+  SEDANG_MAGANG
+  LULUS
+  TERVERIFIKASI
+  MENUNGGU_VALIDASI
+  NONAKTIF
+  AKTIF
+  AJUKAN
+  DITINJAU_SEKOLAH
+  DISETUJUI
+  DITOLAK
+  MENUNGGU
+  REVISI
+  DISETUJUI_GURU
+  PERLU_PERHATIAN
+  BERMASALAH
+}
+
+enum Jurusan {
+  RPL
+  TKJ
+  MM
+}
